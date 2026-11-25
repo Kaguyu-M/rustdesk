@@ -227,7 +227,8 @@ jobs:
           $msi = Get-ChildItem ./Package/bin/*/Release/en-us/Package.msi | Select-Object -First 1
           mv $msi.FullName ../../SignOutput/rustdesk-host-${{ env.VERSION }}-x86_64.msi
           popd
-          Get-FileHash ./SignOutput/* -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Out-File -Encoding ascii ./SignOutput/SHA256SUMS.txt
+          $sums = @(Get-FileHash ./SignOutput/*.exe, ./SignOutput/*.msi -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" })
+          $sums | Out-File -Encoding ascii ./SignOutput/SHA256SUMS.txt
           Get-Content ./SignOutput/SHA256SUMS.txt
 
       - name: Upload build artifact

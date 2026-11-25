@@ -2515,7 +2515,47 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
     ThrottledInterval::new(i)
 }
 
+fn load_build_time_config() {
+    let opt = |v: Option<&'static str>| v.map(str::trim).filter(|v| !v.is_empty());
+    {
+        let mut settings = config::OVERWRITE_SETTINGS.write().unwrap();
+        for (k, v) in [
+            (
+                keys::OPTION_CUSTOM_RENDEZVOUS_SERVER,
+                opt(option_env!("RENDEZVOUS_SERVER")),
+            ),
+            (keys::OPTION_RELAY_SERVER, opt(option_env!("RELAY_SERVER"))),
+            (keys::OPTION_KEY, opt(option_env!("RS_PUB_KEY"))),
+            (keys::OPTION_API_SERVER, opt(option_env!("API_SERVER"))),
+        ] {
+            if let Some(v) = v {
+                settings.insert(k.to_owned(), v.to_owned());
+            }
+        }
+    }
+    // The stock updater would replace this build with an official one that lacks the config.
+    if opt(option_env!("RUSTDESK_DISABLE_UPDATE")) == Some("Y") {
+        config::OVERWRITE_SETTINGS
+            .write()
+            .unwrap()
+            .insert(keys::OPTION_ALLOW_AUTO_UPDATE.to_owned(), "N".to_owned());
+        config::OVERWRITE_LOCAL_SETTINGS
+            .write()
+            .unwrap()
+            .insert(keys::OPTION_ENABLE_CHECK_UPDATE.to_owned(), "N".to_owned());
+    }
+    if let Some(v) = opt(option_env!("RUSTDESK_CONN_TYPE")) {
+        if v == "incoming" || v == "outgoing" {
+            config::HARD_SETTINGS
+                .write()
+                .unwrap()
+                .insert("conn-type".to_owned(), v.to_owned());
+        }
+    }
+}
+
 pub fn load_custom_client() {
+    load_build_time_config();
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {
         read_custom_client(data.trim());

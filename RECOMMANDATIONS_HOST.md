@@ -56,6 +56,20 @@ Réglages intéressants à figer à l'avenir (même mécanisme que `load_build_t
 - `allow-remote-config-modification = N`.
 Le mot de passe permanent se définit **après** l'installation (`rustdesk.exe --password`, cf. script), jamais dans le binaire.
 
+### 4 bis. Rangement automatique des postes (API gratuite `lejianwen/rustdesk-api`)
+L'API gratuite **ignore** les réglages `preset-*` (groupe de postes, utilisateur, carnet) et n'implémente pas `rustdesk.exe --assign` : ces fonctions sont réservées à RustDesk Server Pro.
+Solution retenue : `deploy-host.ps1` se connecte avec un **compte générique non-admin** et ajoute le poste à un carnet d'adresses :
+1. Dans l'admin web de l'API, créer un utilisateur `host-generique` (non admin).
+2. Optionnel : créer une **collection de carnet d'adresses** (ex. `Clients`) appartenant à ce compte, et la partager en lecture avec les techniciens (règles de collection).
+3. Déployer :
+   ```powershell
+   .\deploy-host.ps1 -Msi .\rustdesk-host-1.5.3-x86_64.msi -Password '...' `
+       -ApiServer https://<api> -AbUser host-generique -AbPassword '...' -AbCollection Clients -Tags 'Site-Paris'
+   ```
+   Sans `-AbCollection`, le poste va dans le carnet personnel du compte (option `rustdesk.personal: 1` côté API, active par défaut).
+- Le mot de passe du compte générique n'est utilisé que par le script, jamais écrit sur le poste ; ne pas donner les droits admin à ce compte.
+- Le **groupe de postes** (`group_id`) ne se règle qu'avec un compte admin dans l'admin web : à faire à la main, ou en lot depuis la liste des postes.
+
 ### 5. Suivre l'upstream
 - Utiliser « Sync fork » régulièrement (correctifs de sécurité). Le patch est volontairement additif et isolé dans une fonction : les conflits devraient être rares.
 - Optionnel : un workflow planifié mensuel qui synchronise le fork puis pousse un tag `host-*`.

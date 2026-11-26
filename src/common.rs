@@ -2516,7 +2516,11 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
 }
 
 fn load_build_time_config() {
-    let opt = |v: Option<&'static str>| v.map(str::trim).filter(|v| !v.is_empty());
+    // A BOM is not whitespace for trim(), but secrets piped from Windows shells can carry one.
+    let opt = |v: Option<&'static str>| {
+        v.map(|v| v.trim_matches(|c: char| c.is_whitespace() || c == '\u{feff}'))
+            .filter(|v| !v.is_empty())
+    };
     {
         let mut settings = config::OVERWRITE_SETTINGS.write().unwrap();
         for (k, v) in [

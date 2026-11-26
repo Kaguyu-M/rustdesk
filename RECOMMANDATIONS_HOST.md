@@ -68,6 +68,7 @@ Solution retenue : `deploy-host.ps1` se connecte avec un **compte générique no
    ```
    Sans `-AbCollection`, le poste va dans le carnet personnel du compte (option `rustdesk.personal: 1` côté API, active par défaut).
 - Le mot de passe du compte générique n'est utilisé que par le script, jamais écrit sur le poste ; ne pas donner les droits admin à ce compte.
+- **Kit chiffré généré par le workflow** : si les secrets `AB_USER`, `AB_PASSWORD` (et optionnellement `AB_COLLECTION`) et `KIT_PASSWORD` existent, la release contient `rustdesk-host-kit-<version>.7z` (AES-256, noms de fichiers chiffrés) avec le MSI, les scripts et un `kit.json` prérempli. Ouvrir avec 7-Zip (mot de passe = `KIT_PASSWORD`), puis double-cliquer `INSTALLER.cmd`. Le fork étant public, ne jamais publier ces identifiants autrement que dans ce 7z.
 - Le **groupe de postes** (`group_id`) ne se règle qu'avec un compte admin dans l'admin web : à faire à la main, ou en lot depuis la liste des postes.
 
 ### 5. Suivre l'upstream

@@ -7,6 +7,7 @@
 | `src/common.rs` → `load_build_time_config()` | Lit au **moment de la compilation** les variables `RENDEZVOUS_SERVER`, `RS_PUB_KEY`, `API_SERVER`, `RELAY_SERVER` (optionnel), `RUSTDESK_CONN_TYPE`, `RUSTDESK_DISABLE_UPDATE`, et les injecte comme réglages **verrouillés** (non modifiables dans l'interface). Sans ces variables, le comportement est identique à l'upstream. |
 | `.github/workflows/host-installer.yml` | Build Windows x64 uniquement, mode `incoming` (host only), MAJ automatique désactivée. Produit un `.msi` + un `.exe` auto-installable + `SHA256SUMS.txt`, publiés dans une Release GitHub. |
 | `res/deploy/deploy-host.ps1` | Installation silencieuse du MSI, mot de passe permanent optionnel, affichage de l'ID. |
+| `res/deploy/server-assign-peers.sh` | Cron serveur : range automatiquement les nouveaux postes (cf. 4 bis). |
 
 Les secrets ne sont jamais écrits dans le dépôt : ils n'existent que dans les binaires produits.
 
@@ -57,19 +58,15 @@ Réglages intéressants à figer à l'avenir (même mécanisme que `load_build_t
 Le mot de passe permanent se définit **après** l'installation (`rustdesk.exe --password`, cf. script), jamais dans le binaire.
 
 ### 4 bis. Rangement automatique des postes (API gratuite `lejianwen/rustdesk-api`)
-L'API gratuite **ignore** les réglages `preset-*` (groupe de postes, utilisateur, carnet) et n'implémente pas `rustdesk.exe --assign` : ces fonctions sont réservées à RustDesk Server Pro.
-Solution retenue : `deploy-host.ps1` se connecte avec un **compte générique non-admin** et ajoute le poste à un carnet d'adresses :
-1. Dans l'admin web de l'API, créer un utilisateur `host-generique` (non admin).
-2. Optionnel : créer une **collection de carnet d'adresses** (ex. `Clients`) appartenant à ce compte, et la partager en lecture avec les techniciens (règles de collection).
-3. Déployer :
-   ```powershell
-   .\deploy-host.ps1 -Msi .\rustdesk-host-1.5.3-x86_64.msi -Password '...' `
-       -ApiServer https://<api> -AbUser host-generique -AbPassword '...' -AbCollection Clients -Tags 'Site-Paris'
+L'API gratuite **ignore** les réglages `preset-*` et n'implémente pas `rustdesk.exe --assign` (fonctions RustDesk Server Pro). L'onglet « Appareils accessibles » n'y montre que les postes **ayant un propriétaire**, aux membres du **même groupe d'utilisateurs de type partagé**.
+Solution retenue, sans aucun identifiant sur les postes :
+1. Admin web de l'API : utilisateur `host-generique` (non admin, mot de passe aléatoire jamais utilisé) + groupe d'utilisateurs **partagé** contenant `host-generique` et les comptes des techniciens.
+2. Serveur : `res/deploy/server-assign-peers.sh` en cron (chaque minute) attribue à `host-generique` tout poste sans propriétaire (et optionnellement un groupe d'appareils, 3ᵉ argument) :
+   ```bash
+   * * * * * /opt/rustdesk/server-assign-peers.sh /chemin/data/rustdeskapi.db host-generique
    ```
-   Sans `-AbCollection`, le poste va dans le carnet personnel du compte (option `rustdesk.personal: 1` côté API, active par défaut).
-- Le mot de passe du compte générique n'est utilisé que par le script, jamais écrit sur le poste ; ne pas donner les droits admin à ce compte.
-- **Kit chiffré généré par le workflow** : si les secrets `AB_USER`, `AB_PASSWORD` (et optionnellement `AB_COLLECTION`) et `KIT_PASSWORD` existent, la release contient `rustdesk-host-kit-<version>.7z` (AES-256, noms de fichiers chiffrés) avec le MSI, les scripts et un `kit.json` prérempli. Ouvrir avec 7-Zip (mot de passe = `KIT_PASSWORD`), puis double-cliquer `INSTALLER.cmd`. Le fork étant public, ne jamais publier ces identifiants autrement que dans ce 7z.
-- Le **groupe de postes** (`group_id`) ne se règle qu'avec un compte admin dans l'admin web : à faire à la main, ou en lot depuis la liste des postes.
+3. Postes : installer le MSI (`msiexec /i ... /qn`). Ils apparaissent dans « Appareils accessibles » en ~1 min.
+- Diagnostic : poste absent de la liste « Appareils » de l'admin web → le client ne contacte pas l'API ; présent mais sans propriétaire → cron ou chemin de la base.
 
 ### 5. Suivre l'upstream
 - Utiliser « Sync fork » régulièrement (correctifs de sécurité). Le patch est volontairement additif et isolé dans une fonction : les conflits devraient être rares.

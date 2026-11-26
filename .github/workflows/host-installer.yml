@@ -228,32 +228,9 @@ jobs:
           mv $msi.FullName ../../SignOutput/rustdesk-host-${{ env.VERSION }}-x86_64.msi
           popd
 
-      - name: Build encrypted deployment kit
-        # The kit holds the generic account password: it is only ever published inside an
-        # AES-256 7z whose password (KIT_PASSWORD) never leaves the repository secrets.
-        env:
-          AB_USER: ${{ secrets.AB_USER }}
-          AB_PASSWORD: ${{ secrets.AB_PASSWORD }}
-          AB_COLLECTION: ${{ secrets.AB_COLLECTION }}
-          KIT_PASSWORD: ${{ secrets.KIT_PASSWORD }}
-        run: |
-          $kitPwd = "$env:KIT_PASSWORD".Trim()
-          if (-not $kitPwd) { Write-Host "::warning::KIT_PASSWORD not set, kit skipped"; exit 0 }
-          New-Item -ItemType Directory -Force ./kit | Out-Null
-          Copy-Item ./SignOutput/rustdesk-host-${{ env.VERSION }}-x86_64.msi, ./res/deploy/deploy-host.ps1, ./res/deploy/lancer.ps1, ./res/deploy/INSTALLER.cmd ./kit/
-          [ordered]@{
-            ApiServer    = "$env:API_SERVER".Trim()
-            AbUser       = "$env:AB_USER".Trim()
-            AbPassword   = "$env:AB_PASSWORD".Trim()
-            AbCollection = "$env:AB_COLLECTION".Trim()
-          } | ConvertTo-Json | Out-File -Encoding ascii ./kit/kit.json
-          & 7z a -t7z -mhe=on -mx=5 "-p$kitPwd" ./SignOutput/rustdesk-host-kit-${{ env.VERSION }}.7z ./kit/* | Out-Null
-          if ($LASTEXITCODE -ne 0) { throw "7z failed" }
-          Remove-Item -Recurse -Force ./kit
-
       - name: Checksums
         run: |
-          $sums = @(Get-ChildItem ./SignOutput -File | Where-Object { $_.Extension -in '.exe', '.msi', '.7z' } | Get-FileHash -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" })
+          $sums = @(Get-ChildItem ./SignOutput -File | Where-Object { $_.Extension -in '.exe', '.msi' } | Get-FileHash -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" })
           [IO.File]::WriteAllText("$PWD/SignOutput/SHA256SUMS.txt", (($sums -join "`n") + "`n"))
           Get-Content ./SignOutput/SHA256SUMS.txt
 
@@ -273,7 +250,6 @@ jobs:
             Host-only RustDesk for Windows x64 with the self-hosted server pre-configured (locked).
             - Silent install: `msiexec /i rustdesk-host-${{ env.VERSION }}-x86_64.msi /qn`
             - Or run the `.exe` and click Install.
-            - `rustdesk-host-kit-*.7z`: encrypted deployment kit (open with 7-Zip, password = KIT_PASSWORD secret), then double-click `INSTALLER.cmd`.
             Binaries are unsigned (SmartScreen will warn).
           files: |
             ./SignOutput/*
